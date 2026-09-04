@@ -1,0 +1,97 @@
+%% ========= Basket FEA Pressure Calcs =========
+
+%% Parameters:
+% ----- both regions ------ Parameters:
+    phi     = 35;    %[deg] internal friction angle
+    mu_PLA  = 0.35;  %[N/A] PLA coeff. of friction
+    rho_A110 = 650;  %[kg/m3] bulk A110 density
+    g       = 9.8;   %[m/s2] const. of gravity
+    in2m    = 0.0254; %[m/in] unit conversion
+
+%% 45 deg case
+% ----- 45 degree cone --- Parameters:
+    D_t     = 10;    %[in] top (cylinder) diameter
+    H_t     = 10.08; %[in] cylinder height
+    D_c_max = 10;    %[in] max cone diameter (= D_t)
+    H_c     = 4;     %[in] cone height
+    z = (0:0.1:14)';   %[in] depth vector, 0 to 14, spaced 1 apart
+
+    z_c = z - H_t;                 % depth measured from top of cone
+    valid_c = (z_c >= 0) & (z_c <= H_c);   % only physically valid inside the cone
+
+    D_c = D_c_max - 2*z_c;         % diameter as function of height into cone
+    D_c(~valid_c) = NaN;           % blank out invalid region (avoids negative/zero D)
+
+%% 60 deg case
+% ----- 60 degree cone --- Parameters:
+    D_t = 10;
+    H_t = 7.9;
+    D_c_max = 10;
+    H_c = 6.4;
+    z = (0:0.1:14.3)';
+
+    z_c = z - H_t;                 % depth measured from top of cone
+    valid_c = (z_c >= 0) & (z_c <= H_c);   % only physically valid inside the cone
+
+    D_c = D_c_max - ((2/sqrt(3))*(z - H_t));         % diameter as function of height into cone
+    D_c(~valid_c) = NaN;           % blank out invalid region (avoids negative/zero D)
+
+    
+%% Calculations:
+    R = (D_t / 4) * in2m;                 %[m] hydraulic radius (cylinder)
+    K = (1 - sind(phi)) / (1 + sind(phi)); % use sind() -> phi is in degrees
+
+% --- Cylinder (Janssen equation) ---
+    z_m = z * in2m; % depth in meters
+    P_vert_t = ((rho_A110 * g * R) / (2 * mu_PLA * K)) .* ...
+               (1 - exp(-(mu_PLA * K * z_m) / R));
+    P_wall_t = K * P_vert_t;
+
+    valid_t = z <= H_t;            % cylinder only exists from 0 to H_t
+    P_vert_t(~valid_t) = NaN;
+    P_wall_t(~valid_t) = NaN;
+
+% --- Cone ---
+    R_c = (D_c / 4) * in2m;        % [m] hydraulic radius, cone
+    z_c_m = z_c * in2m;
+
+    P_vert_c = max(P_vert_t) + (((rho_A110 * g * R_c) / (2 * mu_PLA * K)) .* ...
+               (1 - exp(-(mu_PLA * K * z_c_m) ./ R_c)));  % use z_c, not z
+
+    P_wall_c = (1 - (z_c ./ H_c) * 0.5) * max(P_wall_t);  
+    P_wall_c(~valid_c) = NaN;
+
+
+%% Plotting:
+    figure(1);
+    plot(z, P_vert_t, 'LineWidth', 1.5);
+    hold on;
+        plot(z, P_vert_c, 'LineWidth', 1.5);
+    hold off;
+    xlabel('Depth (in)');
+    ylabel('Vertical Pressure (Pa)');
+    legend('Cylinder Pressure', 'Cone Pressure');
+    title('Vertical Pressures');
+    grid on;
+
+    figure(2);
+    plot(z, P_wall_t, 'LineWidth', 1.5);
+    hold on;
+        plot(z, P_wall_c, 'LineWidth', 1.5);
+    hold off;
+    xlabel('Depth (in)');
+    ylabel('Wall Pressure (Pa)');
+    legend('Cylinder Pressure', 'Cone Pressure');
+    title('Wall Pressures');
+    grid on;
+
+%% Plotting Table:
+ z_int_vals = (0:14)';                          % target depths
+    idx = find(abs(mod(z, 1)) < 1e-9);              % indices in z where z is a whole number
+    idx = idx(z(idx) <= 14);                        % safety trim
+
+    T = table(z(idx), P_vert_c(idx), P_vert_t(idx), P_wall_c(idx), P_wall_t(idx), ...
+        'VariableNames', {'z_in', 'P_vert_c', 'P_vert_t', 'P_wall_c', 'P_wall_t'});
+
+    disp(T);
+
