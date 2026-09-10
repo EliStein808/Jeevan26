@@ -70,6 +70,7 @@
     hold off;
     xlabel('Depth (in)');
     ylabel('Vertical Pressure (Pa)');
+    ylim([0 1000]);
     legend('Cylinder Pressure', 'Cone Pressure');
     title('Vertical Pressures');
     grid on;
@@ -81,17 +82,16 @@
     hold off;
     xlabel('Depth (in)');
     ylabel('Wall Pressure (Pa)');
+    ylim([0 200]);
     legend('Cylinder Pressure', 'Cone Pressure');
     title('Wall Pressures');
     grid on;
+   
 
 %% Plotting Table:
- z_int_vals = (0:14)';                          % target depths
-    idx = find(abs(mod(z, 1)) < 1e-9);              % indices in z where z is a whole number
-    idx = idx(z(idx) <= 14);                        % safety trim
-
+    z_int_vals = (0:14)';                          % target depths
+    idx = find(abs(mod(z, 1)) < 1e-9);                % indices in z where z is a multiple of 0.5
+    idx = idx(z(idx) <= 14);                            % safety trim
     T = table(z(idx), P_vert_c(idx), P_vert_t(idx), P_wall_c(idx), P_wall_t(idx), ...
         'VariableNames', {'z_in', 'P_vert_c', 'P_vert_t', 'P_wall_c', 'P_wall_t'});
-
     disp(T);
-
